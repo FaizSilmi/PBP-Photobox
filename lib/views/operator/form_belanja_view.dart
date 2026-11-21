@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../services/api_service.dart';
 
 class FormBelanjaView extends StatefulWidget {
   const FormBelanjaView({super.key});
@@ -18,7 +19,7 @@ class _FormBelanjaViewState extends State<FormBelanjaView> {
     'Lem / Aksesoris',
   ];
 
-  void _simpanBelanja() {
+  Future<void> _simpanBelanja() async {
     if (_jumlahController.text.isEmpty || _hargaController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Semua field wajib diisi!'), backgroundColor: Colors.redAccent),
@@ -26,29 +27,52 @@ class _FormBelanjaViewState extends State<FormBelanjaView> {
       return;
     }
 
+    // Tampilkan loading dialog
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Belanja Berhasil Dicatat'),
-        content: Text(
-          'Bahan: $_selectedBahan\n'
-          'Jumlah: ${_jumlahController.text}\n'
-          'Total Biaya: Rp ${_hargaController.text}\n\n'
-          'Stok inventaris bertambah & kas shift berkurang otomatis.',
-        ),
-        actions: [
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.orangeAccent, foregroundColor: Colors.white),
-            onPressed: () {
-              Navigator.pop(context);
-              Navigator.pop(context);
-            },
-            child: const Text('OK'),
-          ),
-        ],
-      ),
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
     );
+
+    // Panggil API simpan belanja
+    final result = await ApiService.simpanBelanja(
+      namaBahan: _selectedBahan,
+      jumlah: _jumlahController.text,
+      biaya: _hargaController.text,
+    );
+
+    // Tutup loading dialog
+    Navigator.pop(context);
+
+    if (result['status'] == 'success') {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text('Belanja Berhasil Dicatat'),
+          content: Text(
+            'Bahan: $_selectedBahan\n'
+            'Jumlah: ${_jumlahController.text}\n'
+            'Total Biaya: Rp ${_hargaController.text}\n\n'
+            'Data berhasil masuk ke database dan tercatat di sistem.',
+          ),
+          actions: [
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.orangeAccent, foregroundColor: Colors.white),
+              onPressed: () {
+                Navigator.pop(context); // Tutup dialog
+                Navigator.pop(context); // Kembali ke halaman sebelumnya
+              },
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(result['message'] ?? 'Gagal menyimpan data'), backgroundColor: Colors.redAccent),
+      );
+    }
   }
 
   @override
@@ -96,7 +120,7 @@ class _FormBelanjaViewState extends State<FormBelanjaView> {
               ),
               const SizedBox(height: 24),
               DropdownButtonFormField<String>(
-                initialValue: _selectedBahan,
+                value: _selectedBahan,
                 decoration: InputDecoration(
                   labelText: 'Pilih Jenis Bahan',
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),

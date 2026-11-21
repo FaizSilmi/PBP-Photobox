@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'pos_kasir_view.dart';
 import 'form_belanja_view.dart';
+import '../../services/api_service.dart'; // Impor ApiService untuk koneksi backend
 
 class DashboardKasirView extends StatefulWidget {
   const DashboardKasirView({super.key});
@@ -13,18 +14,44 @@ class _DashboardKasirViewState extends State<DashboardKasirView> {
   bool _isShiftAktif = false;
   String _waktuMulai = '-';
 
-  void _mulaiShift() {
-    setState(() {
-      _isShiftAktif = true;
-      final now = TimeOfDay.now();
-      _waktuMulai = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')} WIB';
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Shift berhasil dimulai! Clock-In tercatat.'),
-        backgroundColor: Colors.teal,
-      ),
+  // Fungsi Mulai Shift yang terhubung ke Database/API PHP
+  void _mulaiShift() async {
+    // Sesuaikan ID dan nama operator (bisa diambil dari data login sebelumnya)
+    String operatorId = "1"; 
+    String namaOperator = "Siti Kasir";
+
+    // Tampilkan loading dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
     );
+
+    // Panggil API Backend untuk mencatat shift ke database MySQL
+    final result = await ApiService.mulaiShift(operatorId);
+
+    // Tutup loading dialog
+    Navigator.pop(context);
+
+    if (result['status'] == 'success') {
+      setState(() {
+        _isShiftAktif = true;
+        _waktuMulai = result['waktu_mulai'] ?? TimeOfDay.now().format(context);
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result['message'] ?? 'Shift berhasil dimulai! Clock-In tercatat.'),
+          backgroundColor: Colors.teal,
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result['message'] ?? 'Gagal memulai shift!'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    }
   }
 
   void _selesaiShift() {
@@ -176,7 +203,7 @@ class _DashboardKasirViewState extends State<DashboardKasirView> {
             ),
             const SizedBox(height: 16),
             
-            // Grid Menu Utama Operator yang Lebih Clean
+            // Grid Menu Utama Operator
             Expanded(
               child: GridView.count(
                 crossAxisCount: 2,
